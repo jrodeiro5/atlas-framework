@@ -1,0 +1,24 @@
+# omo agent session-continuation state (sessionID/updatedAt/sources per run).
+# Machine-local runtime state written by an external tool; nothing in this repo
+# reads it. Never useful to another checkout.
+.omo/
+__pycache__/
+.scannerwork/
+.roborev.toml
+# Local agent artifacts (never versioned)
+.mcp.json
+.claude/settings.local.json
+
+# Env files: never versioned. gitleaks catches a literal key at commit time,
+# but only the patterns it knows; ignoring the whole file is prevention, not
+# detection.
+.env
+.env.*
+
+# openwiki working state (the tool regenerates it)
+openwiki/.run.json
+openwiki/.page-manifest.json
+openwiki/.claims/
+
+# local harness config, not part of the repo
+opencode.json

@@ -1,0 +1,47 @@
+#!/bin/bash
+# roborev post-commit hook v4 - auto-reviews every commit
+_roborev_hook() {
+ROBOREV="/opt/homebrew/bin/roborev"
+if [ ! -x "$ROBOREV" ]; then
+    ROBOREV=$(command -v roborev 2>/dev/null)
+    [ -z "$ROBOREV" ] || [ ! -x "$ROBOREV" ] && return 0
+fi
+"$ROBOREV" post-commit 2>/dev/null
+}
+# post-commit — fire the atlas cascade in the background. Never blocks, never fails the commit.
+# Self-locating so tests (and moved checkouts) work without a hardcoded atlas path.
+repo="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+mkdir -p "$HOME/wiki/atlas"
+# core.hooksPath makes git ignore .git/hooks/, silencing any post-commit hook a
+# repo already had (e.g. roborev). Chain it back, same pattern as our pre-commit shim.
+# exactly one path to roborev. 29 of the 42 wired repos carry their own roborev
+# post-commit hook; chaining it AND calling _roborev_hook fired every review twice.
+# ATLAS_SKIP_ROBOREV: roborev hands the commit to a launchd daemon holding the
+# real HOME/PATH, which spawns codex/opencode agents that source ~/.zshrc and
+# `pass show` production keys. A test sandbox cannot contain that — its stubs
+# bind descendants, not a daemon already running. Tests set this; nothing else should.
+if [[ -z "${ATLAS_SKIP_ROBOREV:-}" ]]; then
+  # Backgrounded: a hung roborev must never stall `git commit` (no timeout(1) on macOS).
+  if [[ -x "$repo/.git/hooks/post-commit" ]]; then
+    "$repo/.git/hooks/post-commit" "$@" >/dev/null 2>&1 &
+  else
+    _roborev_hook >/dev/null 2>&1 &   # no repo-local hook, so atlas is the only path to roborev
+  fi
+fi
+# The cascade's own auto-commit carries this trailer. Firing the chain again
+# would regenerate nothing and re-commit it: refuse at the source rather than
+# lean on the spinlock, which can lose its race and take the lock over.
+if git -C "$repo" log -1 --format=%B 2>/dev/null | grep -q '^Atlas-Cascade:'; then
+  exit 0
+fi
+# openwiki is the only stage that uses the local engine, and daytime
+# users need it free. Mark the repo pending here -- not in the cascade, whose
+# per-repo spinlock skips a commit that lands mid-run -- and let
+# atlas-openwiki-nightly.sh generate it in the night window. A day of commits is
+# one marker, so one run.
+pending="${ATLAS_STATE_DIR:-$HOME/.local/state/atlas}/openwiki-pending"
+mkdir -p "$pending" && printf '%s\n' "$repo" >"$pending/$(basename "$repo")"
+# caffeinate -i: cascade must survive idle sleep (pilot died to Idle Sleep 2026-07-19)
+ATLAS_OPENWIKI_DEFER=1 nohup caffeinate -i "$here/../scripts/atlas-cascade.sh" "$repo" >>"$HOME/wiki/atlas/cascade.log" 2>&1 &
+exit 0

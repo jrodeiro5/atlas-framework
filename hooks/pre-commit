@@ -1,0 +1,14 @@
+#!/bin/bash
+# pre-commit — shim. core.hooksPath makes git ignore .git/hooks/, silencing any
+# pre-commit gates a repo already had.
+# Chain them back: prefer the repo's own installed hook; else run prek if the repo
+# declares a .pre-commit-config.yaml. Failure here must block the commit (that is
+# the point of a pre-commit gate), so no exit-0 swallowing.
+set -euo pipefail
+repo="$(git rev-parse --show-toplevel)"
+if [[ -x "$repo/.git/hooks/pre-commit" ]]; then
+  exec "$repo/.git/hooks/pre-commit" "$@"
+elif [[ -f "$repo/.pre-commit-config.yaml" ]] && command -v prek >/dev/null; then
+  cd "$repo" && exec prek run
+fi
+exit 0

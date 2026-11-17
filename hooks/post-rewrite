@@ -1,0 +1,14 @@
+#!/bin/sh
+_entire_stdin="$(mktemp "${TMPDIR:-/tmp}/entire-post-rewrite.XXXXXX")"
+# atlas: Entire only where enabled (.entire/settings.json at the worktree root, git's hook cwd); `entire enable` drops this, atlas check flags it
+cat > "$_entire_stdin"
+trap 'rm -f "$_entire_stdin"' EXIT
+# Entire CLI hooks
+# Post-rewrite hook: remap session linkage after amend/rebase rewrites
+if [ ! -f .entire/settings.json ]; then :; elif [ -x '/opt/homebrew/bin/entire' ]; then '/opt/homebrew/bin/entire' hooks git post-rewrite "$1" < "$_entire_stdin" 2>/dev/null || true; else :; fi
+
+# Chain: run pre-existing hook
+_entire_hook_dir="$(dirname "$0")"
+if [ -x "$_entire_hook_dir/post-rewrite.pre-entire" ]; then
+    "$_entire_hook_dir/post-rewrite.pre-entire" "$@" < "$_entire_stdin"
+fi

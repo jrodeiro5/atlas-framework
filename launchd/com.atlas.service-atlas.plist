@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.atlas.service-atlas</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__ATLAS__/scripts/service-atlas.sh</string>
+  </array>
+  <!-- Sunday 05:00 — 30min after com.atlas.repo-atlas so the two scans never
+       contend for the qmd update they both end with. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>0</integer>
+    <key>Hour</key>
+    <integer>5</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>__HOME__/wiki/atlas/logs/service-atlas.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/wiki/atlas/logs/service-atlas.err.log</string>
+</dict>
+</plist>

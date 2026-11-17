@@ -1,0 +1,13 @@
+repos:
+  - repo: local
+    hooks:
+      - id: skill-check
+        name: skill-check (validate + security-scan agent skills)
+        entry: npx --yes skill-check@1.2.0
+        language: system
+        files: ^\.(claude|agents)/skills/
+        pass_filenames: false
+      - id: gitleaks
+        name: gitleaks (scan staged changes for secrets)
+        entry: gitleaks protect --staged --verbose
+        language: system

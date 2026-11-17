@@ -1,0 +1,103 @@
+#!/bin/bash
+# atlas — single entry point for the atlas toolchain
+# ponytail: pure dispatcher over scripts/; new capability = new script + one case line
+set -euo pipefail
+# realpath: this script is symlinked into ~/.local/bin, so BASH_SOURCE alone
+# would resolve root to ~/.local instead of the checkout
+self="$(realpath "${BASH_SOURCE[0]}")"
+root="$(cd "$(dirname "$self")/.." && pwd)"
+
+# ponytail: bash 3.2 (/bin/bash on macOS) — no mapfile, and `${arr[@]}` on an
+# empty array trips `set -u`, so every expansion sits behind a count check
+status() {
+  out="$HOME/wiki/atlas/repos"
+  shopt -s nullglob
+  docs=("$out"/*.md)
+  shopt -u nullglob
+  n=${#docs[@]}
+
+  echo "atlas — machine-wide self-documenting wiki"
+  echo "bin: $self"
+  echo
+
+  if [ "$n" -eq 0 ]; then
+    echo "entity docs: 0 ($out) — nothing scanned yet"
+    echo
+    echo "next:"
+    echo "  atlas scan             generate entity docs from ~/dev"
+    return
+  fi
+
+  missing=()
+  while IFS= read -r name; do
+    [ -n "$name" ] && missing+=("$name")
+  done < <(grep -L 'gitnexus-indexed: yes' "${docs[@]}" | sed 's#.*/##; s#\.md$##')
+
+  echo "entity docs: $n ($out)"
+  echo "gitnexus:    $((n - ${#missing[@]}))/$n indexed"
+  echo
+
+  if [ "${#missing[@]}" -gt 0 ]; then
+    echo "not indexed (${#missing[@]}):"
+    printf '  %s\n' "${missing[@]}"
+    echo
+    echo "next:"
+    echo "  atlas onboard ${missing[0]}"
+  else
+    echo "not indexed: none"
+    echo
+    echo "next:"
+    echo "  atlas scan             refresh entity docs"
+  fi
+  echo "  atlas check            drift gate"
+  echo "  atlas help             all commands"
+}
+
+case "${1:-status}" in
+  scan)     exec "$root/scripts/repo-atlas.sh" ;;
+  services) exec "$root/scripts/service-atlas.sh" ;;
+  check)    shift; exec "$root/scripts/atlas-check.sh" "$@" ;;
+  onboard)  shift; exec "$root/scripts/atlas-onboard.sh" "$@" ;;
+  cascade)  shift; exec "$root/scripts/atlas-cascade.sh" "$@" ;;
+  pointer)  shift; exec "$root/scripts/atlas-pointer.sh" "$@" ;;
+  graph-check) shift; exec "$root/scripts/entity-graph-check.py" "$@" ;;
+  friction) shift; exec "$root/scripts/atlas-friction.py" "$@" ;;
+  reads)    exec "$root/scripts/atlas-reads.sh" ;;
+  session-context) exec "$root/scripts/atlas-session-context.sh" ;;
+  prompt-context) exec "$root/scripts/atlas-prompt-context.sh" ;;
+  status)   status ;;
+  help|--help|-h)
+    cat <<'EOF'
+atlas — machine-wide self-documenting wiki toolchain
+
+usage: atlas <command>
+
+  scan             regenerate ~/wiki/atlas/repos/*.md from ~/dev (repo-atlas.sh)
+  services         regenerate ~/wiki/atlas/services/*.md from LaunchAgents (service-atlas.sh)
+  check            drift gate: wiring, staleness, qmd coverage (atlas-check.sh)
+  onboard <repo>   idempotent bootstrap: hooksPath + gitnexus + openwiki + codealmanac + verify
+  cascade <repo>   run the post-commit refresh chain by hand (hooks call this)
+  pointer <repo>   write/refresh the atlas back-reference block in CLAUDE.md
+  graph-check [--strict]  OKF link graph of the bundle: broken links and orphan
+                   concepts. Counts the edges of the entity graph. Read-only, no LLM.
+  friction [--undocumented]  errors deja saw recur across sessions, and which
+                   page (if any) mentions them. The almanac mines the repo, deja
+                   mines the sessions; this reports the gap. Read-only, no LLM.
+  reads            cache-hit report: which wiki pages were ever read (atlas-reads.sh)
+  session-context  print the entity doc of the repo in the current directory;
+                   silent outside a scanned repo. Wired as a SessionStart hook.
+  prompt-context   experiment, opt-in (ATLAS_OW_INJECT=1): push title+description of the repo's two
+                   openwiki pages nearest the prompt, raw qmd reranker score gates at ATLAS_OW_CUT (0.5). UserPromptSubmit hook;
+                   needs `qmd mcp --http --daemon`.
+  status           entity doc count + repos without gitnexus index (default)
+  help             this text
+EOF
+    ;;
+  # exit 2 + inline command list: a silently-tolerated typo lets an agent
+  # proceed believing it ran something it did not
+  *)
+    echo "atlas: unknown command '$1'" >&2
+    echo "valid: scan services check onboard cascade pointer graph-check friction reads session-context prompt-context status help" >&2
+    exit 2
+    ;;
+esac

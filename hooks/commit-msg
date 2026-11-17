@@ -1,0 +1,5 @@
+#!/bin/sh
+# Entire CLI hooks
+# atlas: Entire only where enabled (.entire/settings.json at the worktree root, git's hook cwd); `entire enable` drops this, atlas check flags it
+# Commit-msg hook: strip trailer if no user content (allows aborting empty commits)
+if [ ! -f .entire/settings.json ]; then :; elif [ -x '/opt/homebrew/bin/entire' ]; then '/opt/homebrew/bin/entire' hooks git commit-msg "$1" || true; else printf '%s\n' '[entire] Entire CLI is enabled but not installed or not on PATH. Skipping Entire Git hook; continuing. Installation guide: https://docs.entire.io/cli/installation#installation-methods' >&2 || :; fi

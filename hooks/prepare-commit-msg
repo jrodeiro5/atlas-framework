@@ -1,0 +1,4 @@
+#!/bin/sh
+# Entire CLI hooks
+# atlas: Entire only where enabled (.entire/settings.json at the worktree root, git's hook cwd); `entire enable` drops this, atlas check flags it
+if [ ! -f .entire/settings.json ]; then :; elif [ -x '/opt/homebrew/bin/entire' ]; then '/opt/homebrew/bin/entire' hooks git prepare-commit-msg "$1" "$2" 2>/dev/null || true; else :; fi
